@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -22,7 +23,8 @@ import (
 
 func TestPrometheusHandler(t *testing.T) {
 	registryService := service.NewRegistryService(database.NewTestDB(t), config.NewConfig())
-	server, err := registryService.Publish(apiv0.ServerJSON{
+	server, err := registryService.CreateServer(context.Background(), &apiv0.ServerJSON{
+		Schema:      model.CurrentSchemaURL,
 		Name:        "io.github.example/test-server",
 		Description: "Test server detail",
 		Repository: model.Repository{
@@ -44,14 +46,14 @@ func TestPrometheusHandler(t *testing.T) {
 	api.UseMiddleware(router.MetricTelemetryMiddleware(metrics,
 		router.WithSkipPaths("/health", "/metrics", "/ping", "/docs"),
 	))
-	v0.RegisterHealthEndpoint(api, cfg, metrics)
-	v0.RegisterServersEndpoints(api, registryService)
+	v0.RegisterHealthEndpoint(api, "/v0", cfg, metrics)
+	v0.RegisterServersEndpoints(api, "/v0", registryService)
 
 	// Add /metrics for Prometheus metrics using promhttp
 	mux.Handle("/metrics", metrics.PrometheusHandler())
 
-	// Create request
-	url := "/v0/servers/" + server.Meta.Official.ServerID
+	// Create request - using latest version endpoint
+	url := "/v0/servers/" + url.PathEscape(server.Server.Name) + "/versions/latest"
 	req := httptest.NewRequest(http.MethodGet, url, nil)
 	w := httptest.NewRecorder()
 
@@ -76,5 +78,5 @@ func TestPrometheusHandler(t *testing.T) {
 	// Check if the response body contains expected metrics
 	assert.Contains(t, body, "mcp_registry_http_request_duration_bucket")
 	assert.Contains(t, body, "mcp_registry_http_requests_total")
-	assert.Contains(t, body, "path=\"/v0/servers/{server_id}\"")
+	assert.Contains(t, body, "path=\"/v0/servers/{serverName}/versions/{version}\"")
 }

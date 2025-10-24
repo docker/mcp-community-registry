@@ -1,4 +1,4 @@
-FROM golang:1.25-alpine AS builder
+FROM golang:1.24-alpine AS builder
 WORKDIR /app
 
 # Copy go mod files first and download dependencies
@@ -10,7 +10,14 @@ RUN go mod download
 COPY . .
 
 ARG GO_BUILD_TAGS
-RUN go build ${GO_BUILD_TAGS:+-tags="$GO_BUILD_TAGS"} -o /build/registry ./cmd/registry
+ARG VERSION=dev
+ARG GIT_COMMIT=unknown
+ARG BUILD_TIME=unknown
+
+RUN go build \
+    ${GO_BUILD_TAGS:+-tags="$GO_BUILD_TAGS"} \
+    -ldflags="-X main.Version=${VERSION} -X main.GitCommit=${GIT_COMMIT} -X main.BuildTime=${BUILD_TIME}" \
+    -o /build/registry ./cmd/registry
 
 FROM alpine:latest
 WORKDIR /app

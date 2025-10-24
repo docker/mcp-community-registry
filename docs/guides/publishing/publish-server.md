@@ -19,16 +19,17 @@ By the end of this tutorial, you'll have:
 ## Prerequisites
 
 - An MCP server you've already built ([follow this guide if you don't have one already](https://modelcontextprotocol.io/quickstart/server))
+- Your server must be publicly accessible (closed source servers are welcome, but private/internal servers are not supported)
 
 ## Deployment Options
 
 You can make your MCP server available in multiple ways:
 
 - **📦 Package deployment**: Published to registries (npm, PyPI, NuGet, Docker Hub, etc.) and run locally by clients
-- **🌐 Remote deployment**: Hosted as a web service that clients connect to directly  
+- **🌐 Remote deployment**: Hosted as a web service that clients connect to directly
 - **🔄 Hybrid deployment**: Offer both package and remote options for maximum flexibility
 
-Learn more about [MCP server architecture](https://modelcontextprotocol.io/docs/concepts/servers) in the official docs.
+Learn more about [MCP server architecture](https://modelcontextprotocol.io/docs/learn/architecture) in the official docs.
 
 ## Step 1: Install the Publisher CLI
 
@@ -47,7 +48,7 @@ brew install mcp-publisher
 <summary><strong>⬇️ macOS/Linux/WSL: Pre-built binaries</strong></summary>
 
 ```bash
-curl -L "https://github.com/modelcontextprotocol/registry/releases/download/v1.1.0/mcp-publisher_1.1.0_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher && sudo mv mcp-publisher /usr/local/bin/
+curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher && sudo mv mcp-publisher /usr/local/bin/
 ```
 
 </details>
@@ -73,7 +74,7 @@ export PATH=$PATH:$(pwd)/bin
 <summary><strong>🪟 Windows PowerShell: Pre-built binaries</strong></summary>
 
 ```powershell
-$arch = if ([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture -eq "Arm64") { "arm64" } else { "amd64" }; Invoke-WebRequest -Uri "https://github.com/modelcontextprotocol/registry/releases/download/v1.1.0/mcp-publisher_1.1.0_windows_$arch.tar.gz" -OutFile "mcp-publisher.tar.gz"; tar xf mcp-publisher.tar.gz mcp-publisher.exe; rm mcp-publisher.tar.gz
+$arch = if ([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture -eq "Arm64") { "arm64" } else { "amd64" }; Invoke-WebRequest -Uri "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_windows_$arch.tar.gz" -OutFile "mcp-publisher.tar.gz"; tar xf mcp-publisher.tar.gz mcp-publisher.exe; rm mcp-publisher.tar.gz
 # Move mcp-publisher.exe to a directory in your PATH
 ```
 
@@ -92,14 +93,15 @@ This creates a `server.json` with auto-detected values. You'll see something lik
 
 ```json
 {
-  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-16/server.schema.json",
-  "name": "io.github.yourname/your-server",
-  "description": "A description of your MCP server",
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
+  "name": "io.github.yourname/weather-data-mcp",
+  "title": "Weather Data",
+  "description": "Access real-time weather data and forecasts",
   "version": "1.0.0",
   "packages": [
     {
       "registryType": "npm",
-      "identifier": "your-package-name",
+      "identifier": "@yourname/weather-data-mcp",
       "version": "1.0.0",
       "transport": {
         "type": "stdio"
@@ -151,14 +153,15 @@ Add an `mcpName` field to your `package.json`:
 ### Example server.json
 ```json
 {
-  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-16/server.schema.json",
-  "name": "io.github.username/server-name",
-  "description": "A server that provides npm package functionality",
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
+  "name": "io.github.username/slack-integration-mcp",
+  "title": "Slack Integration",
+  "description": "Send messages and manage Slack workspaces",
   "version": "1.0.0",
   "packages": [
     {
       "registryType": "npm",
-      "identifier": "your-npm-package",
+      "identifier": "@username/slack-integration-mcp",
       "version": "1.0.0",
       "transport": {
         "type": "stdio"
@@ -189,14 +192,15 @@ Add it to your README.md file (which becomes the package description on PyPI). T
 ### Example server.json
 ```json
 {
-  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-16/server.schema.json",
-  "name": "io.github.username/server-name",
-  "description": "A server that provides PyPI package functionality",
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
+  "name": "io.github.username/database-query-mcp",
+  "title": "Database Query",
+  "description": "Execute SQL queries and manage database connections",
   "version": "1.0.0",
   "packages": [
     {
       "registryType": "pypi",
-      "identifier": "your-pypi-package",
+      "identifier": "database-query-mcp",
       "version": "1.0.0",
       "transport": {
         "type": "stdio"
@@ -227,14 +231,15 @@ Add a README file to your NuGet package that includes the server name. This can 
 ### Example server.json
 ```json
 {
-  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-16/server.schema.json",
-  "name": "io.github.username/server-name",
-  "description": "A server that provides NuGet package functionality",
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
+  "name": "io.github.username/azure-devops-mcp",
+  "title": "Azure DevOps",
+  "description": "Manage Azure DevOps work items and pipelines",
   "version": "1.0.0",
   "packages": [
     {
       "registryType": "nuget",
-      "identifier": "Your.NuGet.Package",
+      "identifier": "Username.AzureDevOpsMcp",
       "version": "1.0.0",
       "transport": {
         "type": "stdio"
@@ -261,7 +266,7 @@ LABEL io.modelcontextprotocol.server.name="io.github.username/server-name"
 ### How It Works
 - Registry authenticates with container registries using token-based authentication:
   - **Docker Hub**: Uses `auth.docker.io` token service
-  - **GitHub Container Registry**: Uses `ghcr.io` token service  
+  - **GitHub Container Registry**: Uses `ghcr.io` token service
 - Fetches image manifest using Docker Registry v2 API
 - Checks that `io.modelcontextprotocol.server.name` annotation matches your server name
 - Fails if annotation is missing or doesn't match
@@ -269,16 +274,15 @@ LABEL io.modelcontextprotocol.server.name="io.github.username/server-name"
 ### Example server.json (Docker Hub)
 ```json
 {
-  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-16/server.schema.json",
-  "name": "io.github.username/server-name",
-  "description": "A server that provides Docker container functionality",
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
+  "name": "io.github.username/kubernetes-manager-mcp",
+  "title": "Kubernetes Manager",
+  "description": "Deploy and manage Kubernetes resources",
   "version": "1.0.0",
   "packages": [
     {
       "registryType": "oci",
-      "registryBaseUrl": "https://docker.io",
-      "identifier": "yourusername/your-mcp-server",
-      "version": "1.0.0",
+      "identifier": "docker.io/yourusername/kubernetes-manager-mcp:1.0.0",
       "transport": {
         "type": "stdio"
       }
@@ -290,16 +294,15 @@ LABEL io.modelcontextprotocol.server.name="io.github.username/server-name"
 ### Example server.json (GitHub Container Registry)
 ```json
 {
-  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-16/server.schema.json",
-  "name": "io.github.username/server-name",
-  "description": "A server that provides GitHub container functionality",
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
+  "name": "io.github.username/git-operations-mcp",
+  "title": "Git Operations",
+  "description": "Advanced Git repository management and operations",
   "version": "1.0.0",
   "packages": [
     {
       "registryType": "oci",
-      "registryBaseUrl": "https://ghcr.io",
-      "identifier": "yourusername/your-mcp-server",
-      "version": "1.0.0",
+      "identifier": "ghcr.io/username/git-operations-mcp:1.0.0",
       "transport": {
         "type": "stdio"
       }
@@ -308,9 +311,9 @@ LABEL io.modelcontextprotocol.server.name="io.github.username/server-name"
 }
 ```
 
-The identifier is `namespace/repository`, and version is the tag and optionally digest.
+The identifier format is `registry/namespace/repository:tag` (e.g., `docker.io/user/app:1.0.0` or `ghcr.io/user/app:1.0.0`). The version can also be specified as a digest.
 
-The official MCP registry currently supports Docker Hub (`https://docker.io`) and GitHub Container Registry (`https://ghcr.io`).
+The official MCP registry currently supports Docker Hub (`docker.io`) and GitHub Container Registry (`ghcr.io`).
 
 </details>
 
@@ -332,15 +335,15 @@ openssl dgst -sha256 server.mcpb
 ### Example server.json
 ```json
 {
-  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-16/server.schema.json",
-  "name": "io.github.username/server-name",
-  "description": "A server that provides MCPB package functionality",
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
+  "name": "io.github.username/image-processor-mcp",
+  "title": "Image Processor",
+  "description": "Process and transform images with various filters",
   "version": "1.0.0",
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/you/your-repo/releases/download/v1.0.0/server.mcpb",
-      "version": "1.0.0",
+      "identifier": "https://github.com/username/image-processor-mcp/releases/download/v1.0.0/image-processor.mcpb",
       "fileSha256": "fe333e598595000ae021bd27117db32ec69af6987f507ba7a63c90638ff633ce",
       "transport": {
         "type": "stdio"
@@ -370,21 +373,22 @@ Add the `remotes` field to your `server.json` (can coexist with `packages`):
 ### Requirements
 
 - **Service endpoint**: Your MCP server must be accessible at the specified URL
-- **Transport protocol**: Choose from `sse` (Server-Sent Events) or `streamable-http`
+- **Transport protocol**: Choose from `streamable-http` (recommended) or `sse` (deprecated)
 - **URL validation**: For domain namespaces only (see URL requirements below)
 
 ### Example server.json
 
 ```json
 {
-  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-16/server.schema.json",
-  "name": "com.yourcompany/api-server",
-  "description": "Cloud-hosted MCP server for API operations",
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
+  "name": "com.yourcompany/acme-analytics",
+  "title": "ACME Analytics",
+  "description": "Real-time business intelligence and reporting platform",
   "version": "2.0.0",
   "remotes": [
     {
-      "type": "sse",
-      "url": "https://mcp.yourcompany.com/sse"
+      "type": "streamable-http",
+      "url": "https://mcp.yourcompany.com/mcp"
     }
   ]
 }
@@ -398,12 +402,12 @@ You can offer multiple connection methods:
 {
   "remotes": [
     {
-      "type": "sse",
-      "url": "https://mcp.yourcompany.com/sse"
+      "type": "streamable-http",
+      "url": "https://mcp.yourcompany.com/mcp"
     },
     {
-      "type": "streamable-http", 
-      "url": "https://mcp.yourcompany.com/http"
+      "type": "sse",
+      "url": "https://mcp.yourcompany.com/sse"
     }
   ]
 }
@@ -422,11 +426,11 @@ Configure headers that clients should send when connecting:
 {
   "remotes": [
     {
-      "type": "sse",
-      "url": "https://mcp.yourcompany.com/sse",
+      "type": "streamable-http",
+      "url": "https://mcp.yourcompany.com/mcp",
       "headers": [
         {
-          "name": "X-API-Key", 
+          "name": "X-API-Key",
           "description": "API key for authentication",
           "isRequired": true,
           "isSecret": true
@@ -463,6 +467,8 @@ echo "yourcompany.com. IN TXT \"v=MCPv1; k=ed25519; p=$(openssl pkey -in key.pem
 # Add the TXT record to your DNS, then login
 mcp-publisher login dns --domain yourcompany.com --private-key $(openssl pkey -in key.pem -noout -text | grep -A3 "priv:" | tail -n +2 | tr -d ' :\n')
 ```
+
+The ECDSA P-384 crypto algorithm is also supported, along with HTTP-based authenication. See the [publisher CLI commands reference](../../reference/cli/commands.md) for more details.
 
 ## Step 5: Publish Your Server
 

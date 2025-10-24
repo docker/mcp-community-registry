@@ -4,18 +4,21 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
-	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/registry/internal/database"
 	"github.com/modelcontextprotocol/registry/internal/service"
 	apiv0 "github.com/modelcontextprotocol/registry/pkg/api/v0"
 )
 
+const errRecordNotFound = "record not found"
+
 // ListServersInput represents the input for listing servers
 type ListServersInput struct {
-	Cursor       string `query:"cursor" doc:"Pagination cursor (UUID)" format:"uuid" required:"false" example:"550e8400-e29b-41d4-a716-446655440000"`
+	Cursor       string `query:"cursor" doc:"Pagination cursor" required:"false" example:"server-cursor-123"`
 	Limit        int    `query:"limit" doc:"Number of items per page" default:"30" minimum:"1" maximum:"100" example:"50"`
 	UpdatedSince string `query:"updated_since" doc:"Filter servers updated since timestamp (RFC3339 datetime)" required:"false" example:"2025-08-07T13:15:04.280Z"`
 	Search       string `query:"search" doc:"Search servers by name (substring match)" required:"false" example:"filesystem"`
@@ -24,34 +27,31 @@ type ListServersInput struct {
 
 // ServerDetailInput represents the input for getting server details
 type ServerDetailInput struct {
-	ServerID string `path:"server_id" doc:"Server ID (UUID)" format:"uuid"`
-	Version  string `query:"version" doc:"Specific version to retrieve (e.g., '1.0.0'). If not specified, returns latest version." required:"false" example:"1.0.0"`
+	ServerName string `path:"serverName" doc:"URL-encoded server name" example:"com.example%2Fmy-server"`
+}
+
+// ServerVersionDetailInput represents the input for getting a specific version
+type ServerVersionDetailInput struct {
+	ServerName string `path:"serverName" doc:"URL-encoded server name" example:"com.example%2Fmy-server"`
+	Version    string `path:"version" doc:"URL-encoded server version" example:"1.0.0"`
 }
 
 // ServerVersionsInput represents the input for listing all versions of a server
 type ServerVersionsInput struct {
-	ServerID string `path:"server_id" doc:"Server ID (UUID)" format:"uuid"`
+	ServerName string `path:"serverName" doc:"URL-encoded server name" example:"com.example%2Fmy-server"`
 }
 
-// RegisterServersEndpoints registers all server-related endpoints
-func RegisterServersEndpoints(api huma.API, registry service.RegistryService) {
+// RegisterServersEndpoints registers all server-related endpoints with a custom path prefix
+func RegisterServersEndpoints(api huma.API, pathPrefix string, registry service.RegistryService) {
 	// List servers endpoint
 	huma.Register(api, huma.Operation{
-		OperationID: "list-servers",
+		OperationID: "list-servers" + strings.ReplaceAll(pathPrefix, "/", "-"),
 		Method:      http.MethodGet,
-		Path:        "/v0/servers",
+		Path:        pathPrefix + "/servers",
 		Summary:     "List MCP servers",
 		Description: "Get a paginated list of MCP servers from the registry",
 		Tags:        []string{"servers"},
-	}, func(_ context.Context, input *ListServersInput) (*Response[apiv0.ServerListResponse], error) {
-		// Validate cursor if provided
-		if input.Cursor != "" {
-			_, err := uuid.Parse(input.Cursor)
-			if err != nil {
-				return nil, huma.Error400BadRequest("Invalid cursor parameter")
-			}
-		}
-
+	}, func(ctx context.Context, input *ListServersInput) (*Response[apiv0.ServerListResponse], error) {
 		// Build filter from input parameters
 		filter := &database.ServerFilter{}
 
@@ -83,14 +83,20 @@ func RegisterServersEndpoints(api huma.API, registry service.RegistryService) {
 		}
 
 		// Get paginated results with filtering
-		servers, nextCursor, err := registry.List(filter, input.Cursor, input.Limit)
+		servers, nextCursor, err := registry.ListServers(ctx, filter, input.Cursor, input.Limit)
 		if err != nil {
 			return nil, huma.Error500InternalServerError("Failed to get registry list", err)
 		}
 
+		// Convert []*ServerResponse to []ServerResponse
+		serverValues := make([]apiv0.ServerResponse, len(servers))
+		for i, server := range servers {
+			serverValues[i] = *server
+		}
+
 		return &Response[apiv0.ServerListResponse]{
 			Body: apiv0.ServerListResponse{
-				Servers: servers,
+				Servers: serverValues,
 				Metadata: apiv0.Metadata{
 					NextCursor: nextCursor,
 					Count:      len(servers),
@@ -99,60 +105,80 @@ func RegisterServersEndpoints(api huma.API, registry service.RegistryService) {
 		}, nil
 	})
 
-	// Get server details endpoint
+	// Get specific server version endpoint (supports "latest" as special version)
 	huma.Register(api, huma.Operation{
-		OperationID: "get-server",
+		OperationID: "get-server-version" + strings.ReplaceAll(pathPrefix, "/", "-"),
 		Method:      http.MethodGet,
-		Path:        "/v0/servers/{server_id}",
-		Summary:     "Get MCP server details",
-		Description: "Get detailed information about a specific MCP server. Returns the latest version by default, or a specific version if the 'version' query parameter is provided.",
+		Path:        pathPrefix + "/servers/{serverName}/versions/{version}",
+		Summary:     "Get specific MCP server version",
+		Description: "Get detailed information about a specific version of an MCP server. Use the special version 'latest' to get the latest version.",
 		Tags:        []string{"servers"},
-	}, func(_ context.Context, input *ServerDetailInput) (*Response[apiv0.ServerJSON], error) {
-		// Get the server details from the registry service
-		var serverDetail *apiv0.ServerJSON
-		var err error
+	}, func(ctx context.Context, input *ServerVersionDetailInput) (*Response[apiv0.ServerResponse], error) {
+		// URL-decode the server name
+		serverName, err := url.PathUnescape(input.ServerName)
+		if err != nil {
+			return nil, huma.Error400BadRequest("Invalid server name encoding", err)
+		}
 
-		if input.Version != "" {
-			// Get specific version by server_id and version
-			serverDetail, err = registry.GetByServerIDAndVersion(input.ServerID, input.Version)
+		// URL-decode the version
+		version, err := url.PathUnescape(input.Version)
+		if err != nil {
+			return nil, huma.Error400BadRequest("Invalid version encoding", err)
+		}
+
+		var serverResponse *apiv0.ServerResponse
+		// Handle "latest" as a special version
+		if version == "latest" {
+			serverResponse, err = registry.GetServerByName(ctx, serverName)
 		} else {
-			// Get latest version by server_id
-			serverDetail, err = registry.GetByServerID(input.ServerID)
+			serverResponse, err = registry.GetServerByNameAndVersion(ctx, serverName, version)
 		}
 
 		if err != nil {
-			if err.Error() == "record not found" || errors.Is(err, database.ErrNotFound) {
+			if err.Error() == errRecordNotFound || errors.Is(err, database.ErrNotFound) {
 				return nil, huma.Error404NotFound("Server not found")
 			}
 			return nil, huma.Error500InternalServerError("Failed to get server details", err)
 		}
 
-		return &Response[apiv0.ServerJSON]{
-			Body: *serverDetail,
+		return &Response[apiv0.ServerResponse]{
+			Body: *serverResponse,
 		}, nil
 	})
 
 	// Get server versions endpoint
 	huma.Register(api, huma.Operation{
-		OperationID: "get-server-versions",
+		OperationID: "get-server-versions" + strings.ReplaceAll(pathPrefix, "/", "-"),
 		Method:      http.MethodGet,
-		Path:        "/v0/servers/{server_id}/versions",
+		Path:        pathPrefix + "/servers/{serverName}/versions",
 		Summary:     "Get all versions of an MCP server",
 		Description: "Get all available versions for a specific MCP server",
 		Tags:        []string{"servers"},
-	}, func(_ context.Context, input *ServerVersionsInput) (*Response[apiv0.ServerListResponse], error) {
-		// Get all versions for this server
-		servers, err := registry.GetAllVersionsByServerID(input.ServerID)
+	}, func(ctx context.Context, input *ServerVersionsInput) (*Response[apiv0.ServerListResponse], error) {
+		// URL-decode the server name
+		serverName, err := url.PathUnescape(input.ServerName)
 		if err != nil {
-			if err.Error() == "record not found" {
+			return nil, huma.Error400BadRequest("Invalid server name encoding", err)
+		}
+
+		// Get all versions for this server
+		servers, err := registry.GetAllVersionsByServerName(ctx, serverName)
+		if err != nil {
+			if err.Error() == errRecordNotFound || errors.Is(err, database.ErrNotFound) {
 				return nil, huma.Error404NotFound("Server not found")
 			}
 			return nil, huma.Error500InternalServerError("Failed to get server versions", err)
 		}
 
+		// Convert []*ServerResponse to []ServerResponse
+		serverValues := make([]apiv0.ServerResponse, len(servers))
+		for i, server := range servers {
+			serverValues[i] = *server
+		}
+
 		return &Response[apiv0.ServerListResponse]{
 			Body: apiv0.ServerListResponse{
-				Servers: servers,
+				Servers: serverValues,
 				Metadata: apiv0.Metadata{
 					Count: len(servers),
 				},

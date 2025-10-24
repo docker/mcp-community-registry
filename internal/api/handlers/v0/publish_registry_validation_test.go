@@ -41,13 +41,14 @@ func TestPublishRegistryValidation(t *testing.T) {
 	api := humago.New(mux, huma.DefaultConfig("Test API", "1.0.0"))
 
 	// Register the endpoint
-	v0.RegisterPublishEndpoint(api, registryService, testConfig)
+	v0.RegisterPublishEndpoint(api, "/v0", registryService, testConfig)
 
 	t.Run("publish fails with npm registry validation error", func(t *testing.T) {
 		publishReq := apiv0.ServerJSON{
+			Schema:      model.CurrentSchemaURL,
 			Name:        "com.example/test-server-with-npm",
 			Description: "A test server with invalid npm package reference",
-			Version: "1.0.0",
+			Version:     "1.0.0",
 			Packages: []model.Package{
 				{
 					RegistryType: model.RegistryTypeNPM,
@@ -86,14 +87,14 @@ func TestPublishRegistryValidation(t *testing.T) {
 
 	t.Run("publish succeeds with MCPB package (registry validation enabled)", func(t *testing.T) {
 		publishReq := apiv0.ServerJSON{
+			Schema:      model.CurrentSchemaURL,
 			Name:        "com.example/test-server-mcpb-validation",
 			Description: "A test server with MCPB package and registry validation enabled",
-			Version: "0.0.36",
+			Version:     "0.0.36",
 			Packages: []model.Package{
 				{
 					RegistryType: model.RegistryTypeMCPB,
 					Identifier:   "https://github.com/microsoft/playwright-mcp/releases/download/v0.0.36/playwright-mcp-extension-v0.0.36.zip",
-					Version:      "0.0.36",
 					FileSHA256:   "fe333e598595000ae021bd27117db32ec69af6987f507ba7a63c90638ff633ce",
 					Transport: model.Transport{
 						Type: model.TransportTypeStdio,
@@ -124,26 +125,26 @@ func TestPublishRegistryValidation(t *testing.T) {
 
 		assert.Equal(t, http.StatusOK, rr.Code)
 
-		var response apiv0.ServerJSON
+		var response apiv0.ServerResponse
 		err = json.Unmarshal(rr.Body.Bytes(), &response)
 		require.NoError(t, err)
 
-		assert.Equal(t, publishReq.Name, response.Name)
-		assert.Equal(t, publishReq.Version, response.Version)
-		assert.Len(t, response.Packages, 1)
-		assert.Equal(t, model.RegistryTypeMCPB, response.Packages[0].RegistryType)
+		assert.Equal(t, publishReq.Name, response.Server.Name)
+		assert.Equal(t, publishReq.Version, response.Server.Version)
+		assert.Len(t, response.Server.Packages, 1)
+		assert.Equal(t, model.RegistryTypeMCPB, response.Server.Packages[0].RegistryType)
 	})
 
 	t.Run("publish fails when second package fails npm validation", func(t *testing.T) {
 		publishReq := apiv0.ServerJSON{
+			Schema:      model.CurrentSchemaURL,
 			Name:        "com.example/test-server-multiple-packages",
 			Description: "A test server with multiple packages where second fails",
-			Version: "1.0.0",
+			Version:     "1.0.0",
 			Packages: []model.Package{
 				{
 					RegistryType: model.RegistryTypeMCPB,
 					Identifier:   "https://github.com/microsoft/playwright-mcp/releases/download/v0.0.36/playwright-mcp-extension-v0.0.36.zip",
-					Version:      "1.0.0",
 					FileSHA256:   "fe333e598595000ae021bd27117db32ec69af6987f507ba7a63c90638ff633ce",
 					Transport: model.Transport{
 						Type: model.TransportTypeStdio,
@@ -187,9 +188,10 @@ func TestPublishRegistryValidation(t *testing.T) {
 
 	t.Run("publish fails when first package fails validation", func(t *testing.T) {
 		publishReq := apiv0.ServerJSON{
+			Schema:      model.CurrentSchemaURL,
 			Name:        "com.example/test-server-first-package-fails",
 			Description: "A test server where first package fails",
-			Version: "1.0.0",
+			Version:     "1.0.0",
 			Packages: []model.Package{
 				{
 					RegistryType: model.RegistryTypeNPM,
@@ -202,7 +204,6 @@ func TestPublishRegistryValidation(t *testing.T) {
 				{
 					RegistryType: model.RegistryTypeMCPB,
 					Identifier:   "https://github.com/microsoft/playwright-mcp/releases/download/v0.0.36/playwright-mcp-extension-v0.0.36.zip",
-					Version:      "1.0.0",
 					FileSHA256:   "fe333e598595000ae021bd27117db32ec69af6987f507ba7a63c90638ff633ce",
 					Transport: model.Transport{
 						Type: model.TransportTypeStdio,

@@ -6,12 +6,15 @@ The MCP registry provides MCP clients with a list of MCP servers, like an app st
 
 ## Development Status
 
+**2025-10-24 update**: The Registry API has entered an **API freeze (v0.1)** 🎉. For the next month or more, the API will remain stable with no breaking changes, allowing integrators to confidently implement support. This freeze applies to v0.1 while development continues on v0. We'll use this period to validate the API in real-world integrations and gather feedback to shape v1 for general availability. Thank you to everyone for your contributions and patience—your involvement has been key to getting us here!
+
 **2025-09-08 update**: The registry has launched in preview 🎉 ([announcement blog post](https://blog.modelcontextprotocol.io/posts/2025-09-08-mcp-registry-preview/)). While the system is now more stable, this is still a preview release and breaking changes or data resets may occur. A general availability (GA) release will follow later. We'd love your feedback in [GitHub discussions](https://github.com/modelcontextprotocol/registry/discussions/new?category=ideas) or in the [#registry-dev Discord](https://discord.com/channels/1358869848138059966/1369487942862504016) ([joining details here](https://modelcontextprotocol.io/community/communication)).
 
 Current key maintainers:
 - **Adam Jones** (Anthropic) [@domdomegg](https://github.com/domdomegg)  
 - **Tadas Antanavicius** (PulseMCP) [@tadasant](https://github.com/tadasant)
 - **Toby Padilla** (GitHub) [@toby](https://github.com/toby)
+- **Radoslav (Rado) Dimitrov** (Stacklok) [@rdimitrov](https://github.com/rdimitrov)
 
 ## Contributing
 
@@ -39,7 +42,9 @@ Often (but not always) ideas flow through this pipeline:
 make dev-compose
 ```
 
-This starts the registry at [`localhost:8080`](http://localhost:8080) with PostgreSQL and seed data. The database uses ephemeral storage and is reset each time you restart the containers, ensuring a clean state for development and testing.
+This starts the registry at [`localhost:8080`](http://localhost:8080) with PostgreSQL. The database uses ephemeral storage and is reset each time you restart the containers, ensuring a clean state for development and testing.
+
+By default, the registry seeds from the production API with a filtered subset of servers (to keep startup fast). This ensures your local environment mirrors production behavior and all seed data passes validation. For offline development you can seed from a file without validation with `MCP_REGISTRY_SEED_FROM=data/seed.json MCP_REGISTRY_ENABLE_REGISTRY_VALIDATION=false make dev-compose`.
 
 The setup can be configured with environment variables in [docker-compose.yml](./docker-compose.yml) - see [.env.example](./.env.example) for a reference.
 
@@ -135,6 +140,10 @@ Publishing supports multiple authentication methods:
 The registry validates namespace ownership when publishing. E.g. to publish...:
 - `io.github.domdomegg/my-cool-mcp` you must login to GitHub as `domdomegg`, or be in a GitHub Action on domdomegg's repos
 - `me.adamjones/my-cool-mcp` you must prove ownership of `adamjones.me` via DNS or HTTP challenge
+
+## Community Projects
+
+Check out [community projects](docs/community-projects.md) to explore notable registry-related work created by the community.
 
 ## More documentation
 

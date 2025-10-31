@@ -110,7 +110,7 @@ type Package struct {
 	RegistryType         string          `json:"registryType"`
 	Transport            Transport       `json:"transport,omitempty"`
 	Identifier           string          `json:"identifier"`
-	Version              string          `json:"version"`
+	Version              string          `json:"version,omitempty"`
 	EnvironmentVariables []KeyValueInput `json:"environmentVariables,omitempty"`
 	PackageArguments     []Argument      `json:"packageArguments,omitempty"`
 	RuntimeArguments     []Argument      `json:"runtimeArguments,omitempty"`
@@ -278,11 +278,9 @@ func transformEntry(name string, entry DockerCatalogEntry) RegistryServer {
 	}
 
 	if entry.Image != "" {
-		parts := strings.Split(entry.Image, "@")
-		pkg.Identifier = parts[0]
-		if len(parts) > 1 {
-			pkg.Version = parts[1]
-		}
+		// For OCI packages, the entire image reference (including tag/digest) goes in identifier
+		// Don't set a separate version field for OCI packages
+		pkg.Identifier = entry.Image
 	}
 
 	if len(entry.Env) > 0 {
@@ -378,6 +376,11 @@ func transformEntry(name string, entry DockerCatalogEntry) RegistryServer {
 		}
 
 		pkg.RuntimeArguments = append(pkg.RuntimeArguments, arg)
+	}
+
+	// Set runtimeHint when runtimeArguments are present
+	if len(pkg.RuntimeArguments) > 0 {
+		pkg.RuntimeHint = "docker"
 	}
 
 	server.Packages = []Package{pkg}
